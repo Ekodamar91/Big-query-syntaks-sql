@@ -1,0 +1,47 @@
+CREATE TABLE `rakamin-kf-analytics-427500.kimia_farma.analysis_table` AS
+SELECT 
+    ft.transaction_id, -- Memilih kolom 'transaction_id' dari tabel 'kf_final_transaction'
+    ft.date, -- Memilih kolom 'date' dari tabel 'kf_final_transaction'
+    EXTRACT(MONTH FROM ft.date) AS bulan, -- Menambahkan kolom 'bulan' yang diekstrak dari kolom 'date'
+    EXTRACT(YEAR FROM ft.date) AS tahun, -- Menambahkan kolom 'tahun' yang diekstrak dari kolom 'date'
+    ft.branch_id, -- Memilih kolom 'branch_id' dari tabel 'kf_final_transaction'
+    kc.branch_name, -- Memilih kolom 'branch_name' dari tabel 'kf_kantor_cabang'
+    kc.kota, -- Memilih kolom 'kota' dari tabel 'kf_kantor_cabang'
+    kc.provinsi, -- Memilih kolom 'provinsi' dari tabel 'kf_kantor_cabang'
+    kc.rating AS rating_cabang, -- Memilih kolom 'rating' dari tabel 'kf_kantor_cabang' dan mengalihkannya ke 'rating_cabang'
+    ft.customer_name, -- Memilih kolom 'customer_name' dari tabel 'kf_final_transaction'
+    ft.product_id, -- Memilih kolom 'product_id' dari tabel 'kf_final_transaction'
+    p.product_name, -- Memilih kolom 'product_name' dari tabel 'kf_product'
+    ft.price AS actual_price, -- Memilih kolom 'price' dari tabel 'kf_final_transaction' dan mengalihkannya ke 'actual_price'
+    ft.discount_percentage, -- Memilih kolom 'discount_percentage' dari tabel 'kf_final_transaction'
+    ft.price AS revenue,  -- Memilih kolom 'price' dari tabel 'kf_final_transaction' dan mengalihkannya ke 'revenue' (Pendapatan)
+    -- Menghitung persentase laba kotor berdasarkan harga produk
+    CASE
+        WHEN ft.price <= 50000 THEN 0.10
+        WHEN ft.price > 50000 AND ft.price <= 100000 THEN 0.15
+        WHEN ft.price > 100000 AND ft.price <= 300000 THEN 0.20
+        WHEN ft.price > 300000 AND ft.price <= 500000 THEN 0.25
+        ELSE 0.30
+    END AS persentase_gross_laba,
+    -- Menghitung penjualan bersih setelah diskon
+    (ft.price * (1 - ft.discount_percentage / 100)) AS nett_sales,
+    -- Menghitung laba bersih dengan mengurangi biaya (dengan mempertimbangkan persentase laba kotor) dari penjualan bersih
+    ((ft.price * (1 - ft.discount_percentage / 100)) - 
+     (ft.price * (1 - ft.discount_percentage / 100) * CASE
+        WHEN ft.price <= 50000 THEN 0.10
+        WHEN ft.price > 50000 AND ft.price <= 100000 THEN 0.15
+        WHEN ft.price > 100000 AND ft.price <= 300000 THEN 0.20
+        WHEN ft.price > 300000 AND ft.price <= 500000 THEN 0.25
+        ELSE 0.30
+    END)) AS nett_profit,
+    ft.rating AS rating_transaksi -- Memilih kolom 'rating' dari tabel 'kf_final_transaction' dan mengalihkannya ke 'rating_transaksi'
+FROM 
+    `rakamin-kf-analytics-427500.kimia_farma.kf_final_transaction` AS ft -- Menggunakan tabel 'kf_final_transaction' dengan alias 'ft'
+JOIN 
+    `rakamin-kf-analytics-427500.kimia_farma.kf_kantor_cabang` AS kc -- Bergabung dengan tabel 'kf_kantor_cabang' dengan alias 'kc'
+ON 
+    ft.branch_id = kc.branch_id -- Menggabungkan kedua tabel berdasarkan kolom 'branch_id'
+JOIN 
+    `rakamin-kf-analytics-427500.kimia_farma.kf_product` AS p -- Bergabung dengan tabel 'kf_product' dengan alias 'p'
+ON 
+    ft.product_id = p.product_id; -- Menggabungkan kedua tabel berdasarkan kolom 'product_id'
